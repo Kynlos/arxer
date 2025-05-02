@@ -1,5 +1,27 @@
 # Arxer Changelog
 
+## [1.0.3] - 2024-05-03
+
+### Added
+- AI provider selection persistence across all pages using localStorage
+- Better handling for AI model selection in paper explanation feature
+- Enhanced AI response styling with themed colors, better formatting, and improved readability
+
+### Fixed
+- Fixed AI provider selection not persisting in index.php when using the settings modal
+- Improved AI explanation formatting with better typography and page layout
+- Fixed issues with paperData not being properly passed to the paper_explainer.php
+- Removed chat-like language and extraneous content from AI explanations
+- Added null checks for elements in favorites rendering to prevent JavaScript errors
+- Fixed Tailwind configuration in all pages for better consistency and error handling
+
+### Changed
+- Completely redesigned AI explanation output styling with better section headers, lists, and highlighting
+- Enhanced visual styling across all pages with consistent headers, footers and navigation
+- Improved paper explanation prompt to generate clearer, more structured content
+- Added styling for emphasized text in paper explanations for clearer communication
+- Improved code organization and maintainability with better error handling
+
 ## [1.0.2] - 2024-05-02
 
 ### Added

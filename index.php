@@ -1690,6 +1690,28 @@ foreach ($providers as $name => $provider) {
                     }
                 });
             }
+            
+            // Save provider selection to localStorage
+            const providerSelect = document.querySelector('select[name="provider"]');
+            if (providerSelect) {
+                // First, load the saved provider from localStorage if it exists
+                const savedProvider = localStorage.getItem('arxer_preferred_provider');
+                if (savedProvider) {
+                    // Check if this provider exists in the dropdown
+                    const providerOption = Array.from(providerSelect.options).find(option => option.value === savedProvider);
+                    if (providerOption) {
+                        providerSelect.value = savedProvider;
+                        console.log('Restored saved provider:', savedProvider);
+                    }
+                }
+                
+                // Then add event listener to save changes
+                providerSelect.addEventListener('change', function() {
+                    const selectedProvider = this.value;
+                    localStorage.setItem('arxer_preferred_provider', selectedProvider);
+                    console.log('Saved preferred provider:', selectedProvider);
+                });
+            }
 
             // Close the dropdown when clicking outside
             document.addEventListener('click', function(e) {
@@ -2108,6 +2130,14 @@ foreach ($providers as $name => $provider) {
             formData.append('title', paperTitle);
             formData.append('abstract', paperAbstract);
             formData.append('authors', paperAuthors);
+            
+            // Get the currently selected provider from the options dropdown
+            const providerSelect = document.querySelector('select[name="provider"]');
+            if (providerSelect) {
+                const selectedProvider = providerSelect.value;
+                console.log('Using provider for explanation:', selectedProvider);
+                formData.append('provider', selectedProvider);
+            }
             
             // Send POST request to paper_explainer.php
             fetch('paper_explainer.php', {
