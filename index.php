@@ -1065,7 +1065,9 @@ foreach ($providers as $name => $provider) {
                     <h1 class="text-xl font-bold text-warmgray-50">Arxer</h1>
                 </a>
                 <div class="flex items-center">
-                    <h2 class="text-lg text-amber-400 hidden sm:block mr-4">Search</h2>
+                    <a href="#" onclick="showSearchHistory(); return false;" class="text-lg text-amber-400 hidden sm:block mr-4 hover:text-amber-300">
+                        <i class="fas fa-history mr-1"></i> History
+                    </a>
                     <button id="mobile-menu-btn" class="p-1 text-amber-400 sm:hidden focus:outline-none">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
@@ -1075,6 +1077,9 @@ foreach ($providers as $name => $provider) {
             <div id="mobile-menu" class="sm:hidden hidden mt-2 py-2 border-t border-warmgray-700">
                 <a href="index.php" class="block py-2 px-2 text-amber-400 font-medium">
                     <i class="fas fa-search mr-2"></i>Search
+                </a>
+                <a href="#" onclick="showSearchHistory(); return false;" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
+                    <i class="fas fa-history mr-2"></i>History
                 </a>
                 <a href="view_favorites.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
                     <i class="fas fa-folder mr-2"></i>My Collections
@@ -2328,7 +2333,7 @@ foreach ($providers as $name => $provider) {
         // Removed saveSearchHistory function - now using saveSearchToLocalStorage
         
         // Function to view search history
-        function viewHistory() {
+        function showSearchHistory() {
             // Get history from localStorage
             const history = JSON.parse(localStorage.getItem('arxer_history')) || [];
             
@@ -2339,36 +2344,17 @@ foreach ($providers as $name => $provider) {
             
             // Create a modal to display history
             const modal = document.createElement('div');
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
-            modal.style.zIndex = '1000';
-            modal.style.display = 'flex';
-            modal.style.justifyContent = 'center';
-            modal.style.alignItems = 'center';
+            modal.className = 'modal';
+            modal.style.display = 'block';
             
             const content = document.createElement('div');
-            content.style.backgroundColor = '#423D33';
-            content.style.borderRadius = '0.5rem';
-            content.style.padding = '1.5rem';
-            content.style.width = '80%';
-            content.style.maxWidth = '800px';
-            content.style.maxHeight = '80vh';
-            content.style.overflowY = 'auto';
+            content.className = 'modal-content';
+            content.style.animation = 'fadeIn 0.3s';
             
             // Add close button
-            const closeBtn = document.createElement('button');
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'close';
             closeBtn.innerHTML = '&times;';
-            closeBtn.style.float = 'right';
-            closeBtn.style.fontSize = '1.5rem';
-            closeBtn.style.fontWeight = 'bold';
-            closeBtn.style.color = '#A39E93';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.style.border = 'none';
-            closeBtn.style.background = 'none';
             closeBtn.onclick = () => document.body.removeChild(modal);
             
             content.appendChild(closeBtn);
@@ -2376,36 +2362,55 @@ foreach ($providers as $name => $provider) {
             // Add title
             const title = document.createElement('h2');
             title.textContent = 'Your Search History';
-            title.style.color = '#F59E0B';
-            title.style.marginBottom = '1rem';
-            title.style.clear = 'both';
+            title.className = 'text-xl font-semibold text-amber-400 mb-4';
             
             content.appendChild(title);
+            
+            // Create history container with max height and scrolling
+            const historyContainer = document.createElement('div');
+            historyContainer.className = 'max-h-[60vh] overflow-y-auto space-y-3 pr-1';
             
             // Add history entries
             history.forEach(entry => {
                 const entryDiv = document.createElement('div');
                 entryDiv.className = 'paper-card';
-                entryDiv.style.marginBottom = '1rem';
                 
                 const date = new Date(entry.timestamp).toLocaleString();
                 
                 entryDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <h3 style="font-size: 1.125rem; font-weight: 600; color: #FCD34D;">${entry.query}</h3>
-                        <span style="font-size: 0.75rem; color: #857F72;">${date}</span>
+                    <div class="flex flex-col sm:flex-row sm:justify-between gap-2 mb-2">
+                        <h3 class="text-lg font-semibold text-amber-400">${entry.query}</h3>
+                        <span class="text-xs font-medium text-amber-300 date-badge">
+                            <i class="far fa-calendar-alt mr-1"></i> ${date}
+                        </span>
                     </div>
-                    <p style="font-size: 0.875rem; color: #A39E93;">${entry.num_results} papers found</p>
+                    <p class="text-sm text-warmgray-400 mb-3">${entry.num_results} papers found</p>
                     <button onclick="document.querySelector('input[name=\'query\']').value = '${entry.query}'; document.querySelector('form').submit();" 
-                            style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background-color: #504A40; color: #F59E0B; border: none; border-radius: 0.25rem; cursor: pointer;">
-                        Search Again
+                            class="px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-500 transition text-sm">
+                        <i class="fas fa-search mr-1"></i> Search Again
                     </button>
                 `;
                 
-                content.appendChild(entryDiv);
+                historyContainer.appendChild(entryDiv);
             });
             
+            content.appendChild(historyContainer);
             modal.appendChild(content);
+            
+            // Close modal when clicking outside the content area
+            modal.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+            
+            // Close modal when pressing ESC key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
+            });
+            
             document.body.appendChild(modal);
         }
     </script>
