@@ -305,9 +305,13 @@ if (isset($_POST['action'])) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Arxer - Knowledge Graph</title>
-        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <!-- MathJax for LaTeX rendering -->
+        <script type="text/javascript" id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+        </script>
         <style>
             /* Reset browser defaults for form elements */
             input, select, option, textarea {
@@ -423,6 +427,14 @@ if (isset($_POST['action'])) {
         <script>
             tailwind.config = {
                 theme: {
+                    screens: {
+                        'xs': '480px',
+                        'sm': '640px',
+                        'md': '768px',
+                        'lg': '1024px',
+                        'xl': '1280px',
+                        '2xl': '1536px',
+                    },
                     extend: {
                         colors: {
                             warmgray: {
@@ -436,11 +448,35 @@ if (isset($_POST['action'])) {
                                 700: '#504A40',
                                 800: '#423D33',
                                 900: '#27241D',
+                            },
+                            amber: {
+                                50: '#FFFBEB',
+                                100: '#FEF3C7',
+                                200: '#FDE68A',
+                                300: '#FCD34D',
+                                400: '#FBBF24',
+                                500: '#F59E0B',
+                                600: '#D97706',
+                                700: '#B45309',
+                                800: '#92400E',
+                                900: '#78350F',
+                            },
+                            teal: {
+                                50: '#F0FDFA',
+                                100: '#CCFBF1',
+                                200: '#99F6E4',
+                                300: '#5EEAD4',
+                                400: '#2DD4BF',
+                                500: '#14B8A6',
+                                600: '#0D9488',
+                                700: '#0F766E',
+                                800: '#115E59',
+                                900: '#134E4A',
                             }
                         }
                     }
                 }
-            };
+            }
         </script>
     </head>
     <body class="min-h-screen flex flex-col">
@@ -616,9 +652,20 @@ if (isset($_POST['action'])) {
             </div>
         </main>
 
-        <footer class="bg-warmgray-900 py-4 px-4 mt-4">
-            <div class="container mx-auto text-center text-warmgray-400 text-sm">
-                <p>Arxer - Advanced ArXiv Research Assistant</p>
+        <footer class="mt-6 py-4 px-3 bg-warmgray-800 border-t border-warmgray-700">
+            <div class="container mx-auto">
+                <div class="flex flex-col sm:flex-row justify-between items-center">
+                    <div class="mb-2 sm:mb-0">
+                        <p class="text-xs sm:text-sm text-warmgray-400 text-center sm:text-left">&copy; <?php echo date('Y'); ?> Arxer - Advanced ArXiv Research Assistant</p>
+                        <p class="text-xs text-warmgray-500 mt-1">Using local AI: <?php echo htmlspecialchars($providers[$default_provider]['endpoint'] ?? 'Not configured'); ?></p>
+                    </div>
+                    <div class="flex space-x-3">
+                        <a href="index.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Search</a>
+                        <a href="chat.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Assistant</a>
+                        <a href="knowledge_graph.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Knowledge Graph</a>
+                        <a href="view_favorites.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Collections</a>
+                    </div>
+                </div>
             </div>
         </footer>
 

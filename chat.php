@@ -46,8 +46,12 @@ $default_provider = $config['default_provider'] ?? 'local';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arxer - Research Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax for LaTeX rendering -->
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
     <style>
     /* Reset browser defaults for form elements */
     input, select, option, textarea {
@@ -60,6 +64,45 @@ $default_provider = $config['default_provider'] ?? 'local';
         padding: 0.5rem;
         font-family: inherit;
         font-size: inherit;
+    }
+    
+    /* AI Response Styling */
+    .ai-response p {
+        margin-bottom: 1rem;
+        line-height: 1.6;
+    }
+    
+    .ai-response strong {
+        color: #F59E0B;
+        font-weight: 600;
+    }
+    
+    .ai-response ol {
+        margin: 1rem 0 1.5rem 1.5rem;
+        list-style-type: decimal;
+    }
+    
+    .ai-response ul {
+        margin: 1rem 0 1.5rem 1.5rem;
+        list-style-type: disc;
+    }
+    
+    .ai-response li {
+        margin-bottom: 0.5rem;
+        padding-left: 0.5rem;
+    }
+    
+    .ai-response a {
+        color: #5EEAD4;
+        text-decoration: underline;
+    }
+    
+    .ai-response blockquote {
+        margin: 1rem 0;
+        padding-left: 1rem;
+        border-left: 4px solid #F59E0B;
+        color: #A39E93;
+        font-style: italic;
     }
     body {
     background-color: #1C1917;
@@ -215,26 +258,58 @@ $default_provider = $config['default_provider'] ?? 'local';
         }
     </style>
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        warmgray: {
-                            50: '#FAF9F7',
-                            100: '#E8E6E1',
-                            200: '#D3CEC4',
-                            300: '#B8B2A7',
-                            400: '#A39E93',
-                            500: '#857F72',
-                            600: '#625D52',
-                            700: '#504A40',
-                            800: '#423D33',
-                            900: '#27241D',
+    tailwind.config = {
+        theme: {
+        screens: {
+        'xs': '480px',
+    'sm': '640px',
+    'md': '768px',
+    'lg': '1024px',
+    'xl': '1280px',
+    '2xl': '1536px',
+    },
+    extend: {
+    colors: {
+    warmgray: {
+    50: '#FAF9F7',
+    100: '#E8E6E1',
+    200: '#D3CEC4',
+    300: '#B8B2A7',
+    400: '#A39E93',
+        500: '#857F72',
+            600: '#625D52',
+                700: '#504A40',
+                    800: '#423D33',
+                        900: '#27241D',
+                        },
+                        amber: {
+                            50: '#FFFBEB',
+                            100: '#FEF3C7',
+                            200: '#FDE68A',
+                            300: '#FCD34D',
+                            400: '#FBBF24',
+                            500: '#F59E0B',
+                            600: '#D97706',
+                            700: '#B45309',
+                            800: '#92400E',
+                            900: '#78350F',
+                        },
+                        teal: {
+                            50: '#F0FDFA',
+                            100: '#CCFBF1',
+                            200: '#99F6E4',
+                            300: '#5EEAD4',
+                            400: '#2DD4BF',
+                            500: '#14B8A6',
+                            600: '#0D9488',
+                            700: '#0F766E',
+                            800: '#115E59',
+                            900: '#134E4A',
                         }
                     }
                 }
             }
-        };
+        }
     </script>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -269,7 +344,7 @@ $default_provider = $config['default_provider'] ?? 'local';
             </div>
         </div>
     </header>
-
+    
     <!-- Main Navigation Bar - Desktop Only -->
     <nav class="hidden sm:block bg-warmgray-800 border-b border-warmgray-700 py-2 px-4">
         <div class="container mx-auto flex items-center justify-between">
@@ -385,13 +460,11 @@ $default_provider = $config['default_provider'] ?? 'local';
         </div>
     </main>
 
-    <footer class="bg-warmgray-900 py-4 px-4 mt-4">
-        <div class="container mx-auto text-center text-warmgray-400 text-sm">
-            <p>Arxer - Advanced ArXiv Research Assistant</p>
-        </div>
-    </footer>
+    <!-- Footer is at the end of the page -->
 
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <!-- Use a more reliable CDN or local fallback -->
+<script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.min.js"></script>
     <script>
         window.MathJax = {
             tex: {
@@ -707,7 +780,7 @@ $default_provider = $config['default_provider'] ?? 'local';
                     chatMessages.appendChild(userMsg);
                 } else {
                     const aiMsg = document.createElement('div');
-                    aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl';
+                    aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl ai-response';
                     // Use the stored formatted HTML if available, otherwise format it on the fly
                     const content = message.content;
                     aiMsg.innerHTML = content;
@@ -796,7 +869,7 @@ $default_provider = $config['default_provider'] ?? 'local';
                 
                 // Add AI response
                 const aiMsg = document.createElement('div');
-                aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl';
+                aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl ai-response';
                 aiMsg.innerHTML = formattedHtml;
                 chatMessages.appendChild(aiMsg);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -905,23 +978,74 @@ $default_provider = $config['default_provider'] ?? 'local';
             
             // Handle numbered lists
             // This regex looks for lines starting with numbers followed by period or parenthesis
-            text = text.replace(/(^|\n)(\d+)[.)\s]\s*([^\n]+)/g, (match, newline, number, content) => {
+            text = text.replace(/(^|\n)\s*(\d+)[.)\s]\s*([^\n]+)/g, (match, newline, number, content) => {
                 return `${newline}<li><strong>${number}.</strong> ${content}</li>`;
             });
             
             // Wrap adjacent list items in <ol> tags
-            text = text.replace(/(<li>.*?<\/li>)(\s*)(<li>)/g, '$1$3');
-            text = text.replace(/(<li>.*?)(?=\n(?!<li>)|$)/g, '<ol>$1</ol>');
+            let hasOrderedList = text.includes('<li>');
+            if (hasOrderedList) {
+                // Group consecutive list items
+                const listGroups = [];
+                let currentGroup = [];
+                const lines = text.split('\n');
+                
+                lines.forEach(line => {
+                    if (line.trim().startsWith('<li>')) {
+                        currentGroup.push(line);
+                    } else {
+                        if (currentGroup.length > 0) {
+                            listGroups.push(currentGroup);
+                            currentGroup = [];
+                        }
+                        listGroups.push(line);
+                    }
+                });
+                
+                if (currentGroup.length > 0) {
+                    listGroups.push(currentGroup);
+                }
+                
+                // Process each group
+                text = listGroups.map(group => {
+                    if (Array.isArray(group)) {
+                        return `<ol class="list-decimal pl-8 my-4 space-y-2">${group.join('')}</ol>`;
+                    } else {
+                        return group;
+                    }
+                }).join('\n');
+            }
             
             // Format paragraphs (lines separated by blank lines)
-            const paragraphs = text.split(/\n\s*\n/);
-            text = paragraphs.map(p => {
-                // Skip if paragraph is already wrapped in HTML tags
-                if (p.match(/^\s*<[a-z]+[^>]*>/i)) {
-                    return p;
-                }
-                return `<p>${p.replace(/\n/g, ' ')}</p>`;
-            }).join('\n');
+            if (!hasOrderedList) {
+                const paragraphs = text.split(/\n\s*\n/);
+                text = paragraphs.map(p => {
+                    // Skip if paragraph is already wrapped in HTML tags
+                    if (p.match(/^\s*<[a-z]+[^>]*>/i)) {
+                        return p;
+                    }
+                    return `<p class="mb-4">${p.replace(/\n/g, ' ')}</p>`;
+                }).join('\n');
+            } else {
+                // For text with lists, find and wrap non-list content in paragraphs
+                const parts = text.split(/(<ol[^>]*>.*?<\/ol>)/gs);
+                text = parts.map(part => {
+                    if (part.startsWith('<ol')) {
+                        return part;
+                    } else {
+                        // Split by newlines and wrap each line in a paragraph if not empty
+                        const lines = part.split(/\n\s*\n/);
+                        return lines.map(line => {
+                            line = line.trim();
+                            if (!line) return '';
+                            if (line.match(/^\s*<[a-z]+[^>]*>/i)) {
+                                return line;
+                            }
+                            return `<p class="mb-4">${line.replace(/\n/g, ' ')}</p>`;
+                        }).join('\n');
+                    }
+                }).join('');
+            }
             
             // Restore LaTeX expressions
             latexPlaceholders.forEach(({placeholder, content}) => {
@@ -930,13 +1054,16 @@ $default_provider = $config['default_provider'] ?? 'local';
             });
             
             // Handle paper references (e.g., Paper 1, Paper 2)
-            text = text.replace(/\b(Paper\s+\d+)\b/g, '<strong>$1</strong>');
+            text = text.replace(/\b(Paper\s+\d+)\b/g, '<strong class="text-amber-400">$1</strong>');
             
             // Handle block quotes
             text = text.replace(/\n\s*>\s*([^\n]+)(\n\s*>\s*[^\n]+)*/g, (match) => {
                 const content = match.replace(/\n\s*>\s*/g, '\n');
-                return `<blockquote>${content}</blockquote>`;
+                return `<blockquote class="pl-4 border-l-4 border-amber-500 mb-4 italic text-warmgray-300">${content}</blockquote>`;
             });
+            
+            // Enhance bold text and references for better visibility
+            text = text.replace(/<strong>([^<]+)<\/strong>/g, '<strong class="text-amber-400">$1</strong>');
             
             return text;
         }
@@ -1045,5 +1172,22 @@ $default_provider = $config['default_provider'] ?? 'local';
             }
         });
     </script>
+    
+    <footer class="mt-6 py-4 px-3 bg-warmgray-800 border-t border-warmgray-700">
+        <div class="container mx-auto">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-2 sm:mb-0">
+                    <p class="text-xs sm:text-sm text-warmgray-400 text-center sm:text-left">&copy; <?php echo date('Y'); ?> Arxer - Advanced ArXiv Research Assistant</p>
+                    <p class="text-xs text-warmgray-500 mt-1">Using local AI: <?php echo htmlspecialchars($providers[$default_provider]['endpoint'] ?? 'Not configured'); ?></p>
+                </div>
+                <div class="flex space-x-3">
+                    <a href="index.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Search</a>
+                    <a href="chat.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Assistant</a>
+                    <a href="knowledge_graph.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Knowledge Graph</a>
+                    <a href="view_favorites.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Collections</a>
+                </div>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>

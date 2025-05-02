@@ -1,0 +1,32 @@
+# Environment specific files
+.vscode/
+.idea/
+.DS_Store
+
+# Local configuration files that might contain sensitive data
+config.local.php
+
+# Composer dependencies
+/vendor/
+
+# User uploads and generated content
+/uploads/
+/cache/
+/temp/
+
+# Log files
+*.log
+php_errors.log
+
+# Session files
+/sessions/
+
+# Backup files
+*.bak
+*.swp
+*~
+
+# Generated files
+phpDocumentor.phar
+phpdoc.xml
+.phpdoc/

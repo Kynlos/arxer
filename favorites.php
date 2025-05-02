@@ -548,11 +548,15 @@ function render_favorites_page() {
                 const papers = collections[collectionKey] || [];
                 
                 if (papers.length === 0) {
-                    emptyMessage.style.display = 'block';
+                    if (emptyMessage) {
+                        emptyMessage.style.display = 'block';
+                    }
                     return;
                 }
                 
-                emptyMessage.style.display = 'none';
+                if (emptyMessage) {
+                    emptyMessage.style.display = 'none';
+                }
                 
                 // Render each paper
                 papers.forEach((paper, index) => {
