@@ -2,6 +2,8 @@
 
 Arxer is a comprehensive research tool that combines ArXiv paper browsing with AI-powered assistance for academics, researchers, and students. It helps users discover, understand, and manage scientific papers with advanced search capabilities and AI explanations.
 
+![Main](https://github.com/user-attachments/assets/fc85a18a-4b4a-41f2-9e92-ba6e259d7951)
+
 ## Features
 
 ### Paper Search and Discovery
