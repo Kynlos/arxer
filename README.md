@@ -14,6 +14,7 @@ Arxer is a comprehensive research tool that combines ArXiv paper browsing with A
 
 ### AI-Powered Features
 - **Research Chat**: Ask questions about papers and get AI-generated answers
+- **AI Tutor**: Learn concepts through guided Socratic dialogue rather than just getting answers
 - **Paper Explainer**: Generate detailed explanations of papers including:
   - Key concepts breakdown
   - Methodology explanation
@@ -70,40 +71,6 @@ Customize search behavior including:
 Arxer stores user preferences in:
 - `.arxer_history.json`: Reading history
 - `.arxer_favorites.json`: Saved papers and collections
-
-## Pages and Functionality
-
-### index.php
-- Main search interface
-- Paper browsing and filtering
-- Initial discovery point
-
-### research_chat.php
-- AI research assistant interface
-- Question answering about papers
-- Scientific concept explanation
-- Literature review assistance
-
-### paper_explainer.php
-- Detailed paper explanation generator
-- Concept breakdown
-- Significance analysis
-- Methodology explanation
-
-### paper_recommendations.php
-- Similar paper discovery
-- Recommendation engine
-- Trending papers in your field
-
-### knowledge_graph.php
-- Visual representation of paper relationships
-- Concept mapping
-- Research area visualization
-
-### favorites.php & view_favorites.php
-- Saved paper management
-- Collection organization
-- Citation export
 
 ## Requirements
 - PHP 7.4 or higher

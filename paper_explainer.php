@@ -35,13 +35,15 @@ function generate_paper_explanation($paper, $provider_name = null) {
             "TITLE: {$title}\n" .
             "AUTHORS: {$authors}\n" .
             "ABSTRACT: {$abstract}\n\n" .
-            "Provide a comprehensive explanation with the following sections:\n" .
+            "Provide a comprehensive explanation with the following sections. Use clear formatting with paragraph breaks between ideas:\n" .
             "1. Overview - A brief summary of what the paper is about\n" .
             "2. Key Concepts - The main ideas and terminology used\n" .
             "3. Methodology - How the research was conducted (if mentioned)\n" .
             "4. Findings - The main results and discoveries\n" .
             "5. Significance - Why this research matters and its implications\n" .
-            "6. Related Areas - How this connects to other research fields\n";
+            "6. Related Areas - How this connects to other research fields\n\n" .
+            "IMPORTANT: Keep answers direct and to the point. DO NOT phrase your response like a conversation (no \"Let me explain\" or \"Would you like me to\"). " .
+            "Format your response clearly with separate paragraphs for different ideas. Use proper formatting for lists. Do not ask questions at the end.";
 
         // Generate the explanation using the AI provider
         $ai_explanation = $provider->generate_custom_content($prompt, 2048);
@@ -54,6 +56,11 @@ function generate_paper_explanation($paper, $provider_name = null) {
         $sections = [];
         $current_section_text = '';
         $current_section_title = 'Overview';
+        
+        // Clean up the AI explanation first: remove any "Do you want me to" questions that might be at the end
+        $ai_explanation = preg_replace('/\s*Do you want me to.*?$/s', '', $ai_explanation);
+        // Remove any "Let me" or "Okay" or similar intros
+        $ai_explanation = preg_replace('/^\s*(Let me|Okay|Sure|I will)[^\n]*\n/i', '', $ai_explanation);
 
         foreach (explode("\n", $ai_explanation) as $line) {
             $line_stripped = trim($line);
@@ -100,7 +107,7 @@ function generate_paper_explanation($paper, $provider_name = null) {
 
         // Format sections as HTML
         foreach ($sections as [$title, $content]) {
-            $html_explanation .= "<h4>{$title}</h4>\n<p>";
+            $html_explanation .= "<h4 class='text-lg font-semibold text-amber-400 mt-6 mb-3'>{$title}</h4>\n";
 
             // Format the content
             $paragraphs = explode("\n\n", $content);
@@ -113,32 +120,60 @@ function generate_paper_explanation($paper, $provider_name = null) {
                             array_map('trim', preg_split('/\n\s*-|\*/m', $paragraph)),
                             function($item) { return !empty($item); }
                         );
-                        $html_explanation .= "<ul>\n";
+                        $html_explanation .= "<ul class='ml-6 space-y-2 my-4 list-disc'>\n";
                         foreach ($list_items as $item) {
-                            $html_explanation .= "<li>{$item}</li>\n";
+                            $html_explanation .= "<li class='pl-2'>{$item}</li>\n";
                         }
                         $html_explanation .= "</ul>\n";
+                    } else if (preg_match('/^\s*\d+\./', $paragraph)) {
+                        // This looks like a numbered list
+                        $list_items = preg_split('/\n\s*\d+\.\s*/m', $paragraph);
+                        $list_items = array_filter(array_map('trim', $list_items));
+                        
+                        if (!empty($list_items)) {
+                            $html_explanation .= "<ol class='ml-6 space-y-2 my-4 list-decimal'>\n";
+                            foreach ($list_items as $item) {
+                                if (!empty($item)) {
+                                    $html_explanation .= "<li class='pl-2'>{$item}</li>\n";
+                                }
+                            }
+                            $html_explanation .= "</ol>\n";
+                        }
                     } else {
-                        // Regular paragraph
-                        $formatted_paragraph = str_replace("\n", "<br>\n", $paragraph);
-                        $html_explanation .= $formatted_paragraph;
+                        // Regular paragraph - apply some formatting to make it look better
+                        // Replace single newlines with spaces for better flow
+                        $formatted_paragraph = trim(preg_replace('/(?<!\n)\n(?!\n)/', ' ', $paragraph)); 
+                        
+                        // Emphasize text marked with asterisks or that appears to be emphasized
+                        $formatted_paragraph = preg_replace('/\*([^\*]+)\*/', '<strong class="text-amber-400">$1</strong>', $formatted_paragraph);
+                        $formatted_paragraph = preg_replace('/\b(absolutely|crucial|essential|vital|critical)\b/i', '<strong class="text-amber-400">$1</strong>', $formatted_paragraph);
+                        
+                        $html_explanation .= "<p class='mb-4 leading-relaxed'>".$formatted_paragraph."</p>\n";
                     }
 
-                    // Add paragraph break if not the last paragraph
-                    if ($i < count($paragraphs) - 1) {
-                        $html_explanation .= "</p>\n<p>";
-                    }
+                    // No need for paragraph breaks now that we're properly closing each paragraph
                 }
             }
 
-            $html_explanation .= "</p>\n";
+            // No longer need to close the outer paragraph since each paragraph is closed properly
         }
 
         // If no sections were found, format the entire text as a single section
         if (empty($sections)) {
-            $html_explanation = "<h4>Overview</h4>\n<p>"
-                . str_replace("\n\n", "</p>\n<p>", str_replace("\n", "<br>\n", $ai_explanation))
-                . "</p>\n";
+            $html_explanation = "<h4 class='text-lg font-semibold text-amber-400 mt-6 mb-3'>Overview</h4>\n";
+            
+            // Split into paragraphs and format each one properly
+            $paragraphs = explode("\n\n", $ai_explanation);
+            foreach ($paragraphs as $paragraph) {
+                $paragraph = trim($paragraph);
+                if (!empty($paragraph)) {
+                    // Replace single newlines with spaces
+                    $formatted_paragraph = preg_replace('/(?<!\n)\n(?!\n)/', ' ', $paragraph);
+                    // Format emphasized text
+                    $formatted_paragraph = preg_replace('/\*([^\*]+)\*/', '<strong class="text-amber-400">$1</strong>', $formatted_paragraph);
+                    $html_explanation .= "<p class='mb-4 leading-relaxed'>{$formatted_paragraph}</p>\n";
+                }
+            }
         }
 
         // Format LaTeX equations for better rendering
@@ -197,33 +232,33 @@ function generate_paper_explanation($paper, $provider_name = null) {
         }
         
         // Format related papers section specially
-        $html_explanation = preg_replace('/<h4>(Related\s*(?:Papers|Areas|Work|Research))<\/h4>\s*<p>([\s\S]*?)<\/p>/i', '<h4>$1</h4><div class="related-papers">$2</div>', $html_explanation);
+        $html_explanation = preg_replace('/<h4 class=[^>]+>(Related\s*(?:Papers|Areas|Work|Research))<\/h4>\s*<p([^>]*)>([\s\S]*?)<\/p>/i', '<h4 class="text-lg font-semibold text-amber-400 mt-6 mb-3">$1</h4><div class="related-papers bg-warmgray-700 p-4 rounded-lg my-4 border-l-4 border-amber-400">$3</div>', $html_explanation);
         
         // Format bullet points in related papers nicely
         $html_explanation = preg_replace_callback('/- \\citet{([^}]+)}:? ?(.*?)(?:\n|$)/', function($matches) {
             $citation = trim($matches[1]);
             $description = isset($matches[2]) ? trim($matches[2]) : '';
-            $result = '<li><span class="citation">' . $citation . '</span>';
+            $result = '<li class="mb-2"><span class="citation bg-amber-900/30 text-amber-300 px-2 py-1 rounded font-mono text-sm">' . $citation . '</span>';
             if (!empty($description)) {
-                $result .= '<span class="paper-description">' . $description . '</span>';
+                $result .= '<span class="paper-description block ml-6 mt-1 text-warmgray-300 italic">' . $description . '</span>';
             }
             return $result;
         }, $html_explanation);
-        $html_explanation = preg_replace_callback('/<div class="related-papers">([\s\S]*?)<\/div>/s', function($matches) {
+        $html_explanation = preg_replace_callback('/<div class="related-papers [^"]*">([\s\S]*?)<\/div>/s', function($matches) {
             // Replace bullet points with proper list items
-            $content = preg_replace('/- ([^\n]+)/', '<li>$1</li>', $matches[1]);
+            $content = preg_replace('/- ([^\n]+)/', '<li class="mb-2">$1</li>', $matches[1]);
             // Wrap content in a ul if it contains list items
-            if (strpos($content, '<li>') !== false) {
-                $content = '<ul>' . $content . '</ul>';
+            if (strpos($content, '<li') !== false) {
+                $content = '<ul class="ml-4 list-disc space-y-1 mt-2">' . $content . '</ul>';
             }
-            return '<div class="related-papers">' . $content . '</div>';
+            return '<div class="related-papers bg-warmgray-700 p-4 rounded-lg my-4 border-l-4 border-amber-400">' . $content . '</div>';
         }, $html_explanation);
         
         // Wrap everything in a container
-        $explanation = "<div class='explanation'>\n" .
-            "<h3>Explanation of: {$title}</h3>\n" .
+        $explanation = "<div class='explanation bg-warmgray-800 p-5 rounded-lg'>\n" .
+            "<h3 class='text-xl font-bold text-amber-400 mb-4'>Explanation of: {$title}</h3>\n" .
             $html_explanation .
-            "<p><em>This explanation was generated by AI and may not be completely accurate.</em></p>\n" .
+            "<p class='text-xs text-warmgray-400 mt-4 italic text-right'>This explanation was generated by AI and may not be completely accurate.</p>\n" .
             "</div>";
 
         return $explanation;

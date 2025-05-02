@@ -40,6 +40,9 @@
                 <a href="chat.php" class="block py-2 px-2 <?php echo $current_page === 'chat' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-400'; ?>">
                     <i class="fas fa-robot mr-2"></i>Research Assistant
                 </a>
+                <a href="tutor.php" class="block py-2 px-2 <?php echo $current_page === 'tutor' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-400'; ?>">
+                    <i class="fas fa-graduation-cap mr-2"></i>AI Tutor
+                </a>
                 <a href="knowledge_graph.php" class="block py-2 px-2 <?php echo $current_page === 'knowledge_graph' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-400'; ?>">
                     <i class="fas fa-project-diagram mr-2"></i>Knowledge Graph
                 </a>
@@ -59,6 +62,9 @@
                 </a>
                 <a href="chat.php" class="<?php echo $current_page === 'chat' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-300'; ?> px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-robot mr-1"></i> Research Assistant
+                </a>
+                <a href="tutor.php" class="<?php echo $current_page === 'tutor' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-300'; ?> px-3 py-1 rounded hover:bg-warmgray-700">
+                    <i class="fas fa-graduation-cap mr-1"></i> AI Tutor
                 </a>
                 <a href="knowledge_graph.php" class="<?php echo $current_page === 'knowledge_graph' ? 'text-amber-400' : 'text-warmgray-300 hover:text-amber-300'; ?> px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-project-diagram mr-1"></i> Knowledge Graph

@@ -1085,6 +1085,9 @@ foreach ($providers as $name => $provider) {
                 <a href="knowledge_graph.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
                     <i class="fas fa-project-diagram mr-2"></i>Knowledge Graph
                 </a>
+                <a href="tutor.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
+                    <i class="fas fa-graduation-cap mr-2"></i>AI Tutor
+                </a>
             </div>
             <div class="mt-4">
                 <form method="POST" action="" id="search-form" class="flex flex-col gap-2">
@@ -1195,6 +1198,9 @@ foreach ($providers as $name => $provider) {
                 </a>
                 <a href="knowledge_graph.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-project-diagram mr-1"></i> Knowledge Graph
+                </a>
+                <a href="tutor.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
+                    <i class="fas fa-graduation-cap mr-1"></i> AI Tutor
                 </a>
             </div>
             <div>
@@ -2450,6 +2456,7 @@ foreach ($providers as $name => $provider) {
                 <div class="flex space-x-3">
                     <a href="index.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Search</a>
                     <a href="chat.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Assistant</a>
+                    <a href="tutor.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">AI Tutor</a>
                     <a href="knowledge_graph.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Knowledge Graph</a>
                     <a href="view_favorites.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Collections</a>
                 </div>

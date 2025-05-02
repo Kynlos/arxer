@@ -1,5 +1,20 @@
 # Arxer Changelog
 
+## [1.0.4] - 2024-05-04
+
+### Added
+- New AI Tutor feature that focuses on helping users learn concepts and understand papers
+- Specialized tutoring system prompt that uses the Socratic method to guide learning
+- Paper selection for tutoring context from user collections
+- Persistent tutoring session history with localStorage
+- Enhanced response formatting specifically designed for educational content
+
+### Changed
+- Updated navigation in header and all page templates to include AI Tutor across all pages
+- Added consistent AI Tutor link to both mobile and desktop navigation in index.php, chat.php, knowledge_graph.php, and favorites.php
+- Improved session management for both chat and tutoring features
+- Enhanced styling for educational content with special formatting for questions, examples, and key concepts
+
 ## [1.0.3] - 2024-05-03
 
 ### Added

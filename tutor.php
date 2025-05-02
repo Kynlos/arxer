@@ -1,14 +1,13 @@
 <?php
 /**
- * Dedicated Research Chat Page for Arxer
+ * AI Tutor Page for Arxer
  *
- * This page provides a focused interface for chatting with the AI research assistant
- * about papers and scientific concepts.
+ * This page provides a specialized tutoring interface where the AI helps users learn
+ * about scientific concepts through guided exploration rather than just answering questions.
  */
 
 require_once 'config.php';
 require_once 'ai_providers.php';
-require_once 'research_chat.php';
 require_once 'favorites.php';
 
 // Get config
@@ -38,6 +37,216 @@ foreach ($providers as $name => $provider) {
 
 // Get default provider
 $default_provider = $config['default_provider'] ?? 'local';
+
+/**
+ * Process a tutoring question and generate a teaching-focused response
+ *
+ * @param string $question The user's question
+ * @param array|null $context_papers Papers to use as context (optional)
+ * @param string|null $provider_name AI provider to use
+ * @return string The AI-generated response
+ */
+function get_tutor_response($question, $context_papers = null, $provider_name = null) {
+    if (empty($question)) {
+        return "Please ask a question about the paper or concept you'd like to learn about.";
+    }
+    
+    // Get the AI provider
+    $provider = get_ai_provider($provider_name);
+    
+    // Build context from papers if provided
+    $context = "";
+    if (!empty($context_papers)) {
+        $context = "I'll provide tutoring based on these papers:\n";
+        
+        foreach ($context_papers as $i => $paper) {
+            if (isset($paper['title']) && isset($paper['authors']) && isset($paper['abstract'])) {
+                $context .= "Paper " . ($i + 1) . ": {$paper['title']}\n";
+                $context .= "Authors: {$paper['authors']}\n";
+                $context .= "Abstract: {$paper['abstract']}\n\n";
+            }
+        }
+    }
+    
+    // Create the specialized tutoring prompt
+    $prompt = "You are ScienceTutor, an AI teaching assistant specializing in helping students understand scientific papers and concepts.\n" .
+             "Your goal is not to simply answer questions, but to guide the student through understanding the material themselves.\n" .
+             "Follow these tutoring principles:\n" .
+             "1. Use the Socratic method - ask thoughtful questions that lead the student to discover answers.\n" .
+             "2. Break down complex concepts into manageable parts.\n" .
+             "3. Provide analogies and examples to illustrate difficult concepts.\n" .
+             "4. Identify core principles and foundational knowledge the student needs.\n" .
+             "5. Encourage critical thinking by asking 'why' and 'how' questions.\n" .
+             "6. When explaining mathematical concepts, explain the intuition before the formalism.\n" .
+             "7. Avoid giving complete solutions immediately - help the student work through the problem.\n\n";
+    
+    if (!empty($context)) {
+        $prompt .= "Context information:\n{$context}\n";
+    }
+    
+    $prompt .= "Student's question: {$question}\n\n";
+    $prompt .= "Your teaching response:";
+    
+    // Generate the response using the AI provider with more tokens and moderate temperature for creativity
+    $response = $provider->generate_custom_content($prompt, 1500, 0.5);
+    
+    // Format the response for display with the specialized tutoring format
+    $formatted_response = format_tutor_response($response);
+    
+    return $formatted_response;
+}
+
+/**
+ * Format the tutoring response with proper HTML and educational styling
+ *
+ * @param string $text The raw response text
+ * @return string HTML formatted response
+ */
+function format_tutor_response($text) {
+    if (empty($text)) {
+        return "<p>No response generated.</p>";
+    }
+    
+    // Process LaTeX expressions first (protect them from other formatting)
+    $latexPlaceholders = [];
+    $latexCounter = 0;
+    
+    // Replace LaTeX expressions with placeholders
+    $text = preg_replace_callback('/\\cite[tp]\{([^\}]+)\}/', function($match) use (&$latexPlaceholders, &$latexCounter) {
+        $placeholder = "__LATEX_PLACEHOLDER_{$latexCounter}__";
+        $latexPlaceholders[] = ['placeholder' => $placeholder, 'content' => $match[0]];
+        $latexCounter++;
+        return $placeholder;
+    }, $text);
+    
+    // Handle numbered lists
+    // This regex looks for lines starting with numbers followed by period or parenthesis
+    $text = preg_replace('/(^|\n)\s*(\d+)[.)\s]\s*([^\n]+)/', '$1<li><strong>$2.</strong> $3</li>', $text);
+    
+    // Wrap adjacent list items in <ol> tags
+    $hasOrderedList = strpos($text, '<li>') !== false;
+    if ($hasOrderedList) {
+        // Group consecutive list items
+        $listGroups = [];
+        $currentGroup = [];
+        $lines = explode("\n", $text);
+        
+        foreach ($lines as $line) {
+            if (strpos($line, '<li>') !== false) {
+                $currentGroup[] = $line;
+            } else {
+                if (count($currentGroup) > 0) {
+                    $listGroups[] = $currentGroup;
+                    $currentGroup = [];
+                }
+                $listGroups[] = $line;
+            }
+        }
+        
+        if (count($currentGroup) > 0) {
+            $listGroups[] = $currentGroup;
+        }
+        
+        // Process each group
+        $text = '';
+        foreach ($listGroups as $group) {
+            if (is_array($group)) {
+                $text .= "<ol class=\"list-decimal pl-8 my-4 space-y-2\">" . implode('', $group) . "</ol>";
+            } else {
+                $text .= $group . "\n";
+            }
+        }
+    }
+    
+    // Format paragraphs (lines separated by blank lines)
+    if (!$hasOrderedList) {
+        $paragraphs = explode("\n\n", $text);
+        $text = '';
+        foreach ($paragraphs as $p) {
+            // Skip if paragraph is already wrapped in HTML tags
+            if (preg_match('/^\s*<[a-z]+[^>]*>/i', $p)) {
+                $text .= $p . "\n";
+            } else {
+                $text .= "<p class=\"mb-4\">" . str_replace("\n", " ", $p) . "</p>\n";
+            }
+        }
+    } else {
+        // For text with lists, find and wrap non-list content in paragraphs
+        $parts = preg_split('/(<ol[^>]*>.*?<\/ol>)/s', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $text = '';
+        foreach ($parts as $part) {
+            if (strpos($part, '<ol') === 0) {
+                $text .= $part;
+            } else {
+                // Split by newlines and wrap each line in a paragraph if not empty
+                $lines = explode("\n\n", $part);
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (!$line) continue;
+                    if (preg_match('/^\s*<[a-z]+[^>]*>/i', $line)) {
+                        $text .= $line . "\n";
+                    } else {
+                        $text .= "<p class=\"mb-4\">" . str_replace("\n", " ", $line) . "</p>\n";
+                    }
+                }
+            }
+        }
+    }
+    
+    // Format questions the tutor asks to stand out
+    $text = preg_replace('/(<p[^>]*>)([^?<>]+\?)(<\/p>)/i', '$1<span class="tutor-question">$2</span>$3', $text);
+    
+    // Format important concepts in bold
+    $text = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $text);
+    
+    // Add special styling for examples or analogies
+    if (preg_match('/(Example:|Analogy:|For instance:)/i', $text)) {
+        $text = preg_replace('/(<p[^>]*>)(Example:|Analogy:|For instance:)\s*(.+?)(<\/p>)/is', 
+                          '<div class="example-box"><strong>$2</strong> $3</div>', $text);
+    }
+    
+    // Restore LaTeX expressions
+    foreach ($latexPlaceholders as $item) {
+        $styledContent = "<span class=\"citation\">{$item['content']}</span>";
+        $text = str_replace($item['placeholder'], $styledContent, $text);
+    }
+    
+    // Handle paper references (e.g., Paper 1, Paper 2)
+    $text = preg_replace('/\b(Paper\s+\d+)\b/', '<strong class="text-amber-400">$1</strong>', $text);
+    
+    // Handle block quotes
+    $text = preg_replace_callback('/\n\s*>\s*([^\n]+)(\n\s*>\s*[^\n]+)*/', function($match) {
+        $content = preg_replace('/\n\s*>\s*/', "\n", $match[0]);
+        return "<blockquote class=\"pl-4 border-l-4 border-amber-500 mb-4 italic text-warmgray-300\">$content</blockquote>";
+    }, $text);
+    
+    // Enhance bold text for better visibility
+    $text = preg_replace('/<strong>([^<]+)<\/strong>/', '<strong class="text-amber-400">$1</strong>', $text);
+    
+    return "<div class='tutor-response'>" . $text . "</div>";
+}
+
+// Handle AJAX requests for tutoring responses
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'tutor') {
+    // Get the question from the POST request
+    $question = $_POST['question'] ?? '';
+    
+    // Get context papers if provided
+    $context_papers = [];
+    if (isset($_POST['context_papers'])) {
+        $context_papers = json_decode($_POST['context_papers'], true);
+    }
+    
+    // Get the provider name if specified
+    $provider_name = $_POST['provider'] ?? null;
+    
+    // Generate the response
+    $response = get_tutor_response($question, $context_papers, $provider_name);
+    
+    // Return the response
+    echo $response;
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -45,7 +254,7 @@ $default_provider = $config['default_provider'] ?? 'local';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arxer - Research Assistant</title>
+    <title>Arxer - AI Tutor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- MathJax for LaTeX rendering -->
@@ -66,44 +275,60 @@ $default_provider = $config['default_provider'] ?? 'local';
         font-size: inherit;
     }
     
-    /* AI Response Styling */
-    .ai-response p {
+    /* Tutor Response Styling */
+    .tutor-response p {
         margin-bottom: 1rem;
         line-height: 1.6;
     }
     
-    .ai-response strong {
+    .tutor-response strong {
         color: #F59E0B;
         font-weight: 600;
     }
     
-    .ai-response ol {
+    .tutor-response ol {
         margin: 1rem 0 1.5rem 1.5rem;
         list-style-type: decimal;
     }
     
-    .ai-response ul {
+    .tutor-response ul {
         margin: 1rem 0 1.5rem 1.5rem;
         list-style-type: disc;
     }
     
-    .ai-response li {
+    .tutor-response li {
         margin-bottom: 0.5rem;
         padding-left: 0.5rem;
     }
     
-    .ai-response a {
+    .tutor-response a {
         color: #5EEAD4;
         text-decoration: underline;
     }
     
-    .ai-response blockquote {
+    .tutor-response blockquote {
         margin: 1rem 0;
         padding-left: 1rem;
         border-left: 4px solid #F59E0B;
         color: #A39E93;
         font-style: italic;
     }
+    
+    .tutor-question {
+        color: #5EEAD4; /* Different color to distinguish from chat */
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    
+    .example-box {
+        background-color: rgba(80, 74, 64, 0.5);
+        border-left: 4px solid #5EEAD4; /* Different color to distinguish from chat */
+        padding: 0.75rem;
+        margin: 1rem 0;
+        border-radius: 0.25rem;
+    }
+    
     body {
     background-color: #1C1917;
     color: #E5E7EB;
@@ -156,7 +381,7 @@ $default_provider = $config['default_provider'] ?? 'local';
         .chat-container {
             height: calc(100vh - 160px);
         }
-        /* Formatted AI response styles */
+        /* Formatted tutor response styles */
         blockquote {
             border-left: 3px solid #F59E0B;
             padding-left: 1rem;
@@ -226,7 +451,7 @@ $default_provider = $config['default_provider'] ?? 'local';
         }
         
         .paper-checkbox:checked::after, .collection-checkbox:checked::after {
-            content: '✓';
+            content: '\2713';
             position: absolute;
             top: 0;
             left: 3px;
@@ -321,7 +546,7 @@ $default_provider = $config['default_provider'] ?? 'local';
                     <h1 class="text-xl font-bold text-warmgray-50">Arxer</h1>
                 </a>
                 <div class="flex items-center">
-                    <h2 class="text-lg text-amber-400 hidden sm:block mr-4">Research Assistant</h2>
+                    <h2 class="text-lg text-amber-400 hidden sm:block mr-4">AI Tutor</h2>
                     <button id="mobile-menu-btn" class="p-1 text-amber-400 sm:hidden focus:outline-none">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
@@ -335,13 +560,13 @@ $default_provider = $config['default_provider'] ?? 'local';
                 <a href="view_favorites.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
                     <i class="fas fa-folder mr-2"></i>My Collections
                 </a>
-                <a href="chat.php" class="block py-2 px-2 text-amber-400 font-medium">
+                <a href="chat.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
                     <i class="fas fa-robot mr-2"></i>Research Assistant
                 </a>
                 <a href="knowledge_graph.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
                     <i class="fas fa-project-diagram mr-2"></i>Knowledge Graph
                 </a>
-                <a href="tutor.php" class="block py-2 px-2 text-warmgray-300 hover:text-amber-400">
+                <a href="tutor.php" class="block py-2 px-2 text-amber-400 font-medium">
                     <i class="fas fa-graduation-cap mr-2"></i>AI Tutor
                 </a>
             </div>
@@ -358,13 +583,13 @@ $default_provider = $config['default_provider'] ?? 'local';
                 <a href="view_favorites.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-folder mr-1"></i> Collections
                 </a>
-                <a href="chat.php" class="text-amber-400 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
+                <a href="chat.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-robot mr-1"></i> Research Assistant
                 </a>
                 <a href="knowledge_graph.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-project-diagram mr-1"></i> Knowledge Graph
                 </a>
-                <a href="tutor.php" class="text-warmgray-300 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
+                <a href="tutor.php" class="text-amber-400 hover:text-amber-300 px-3 py-1 rounded hover:bg-warmgray-700">
                     <i class="fas fa-graduation-cap mr-1"></i> AI Tutor
                 </a>
             </div>
@@ -376,10 +601,10 @@ $default_provider = $config['default_provider'] ?? 'local';
 
     <main class="container mx-auto px-4 py-4 flex-grow">
         <div class="flex flex-col lg:flex-row gap-4 h-full">
-            <!-- Chat Area -->
+            <!-- Tutor Area -->
             <div class="flex flex-col w-full lg:w-3/4 bg-warmgray-800 rounded-lg p-4 chat-container">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-amber-400">Research Assistant</h2>
+                    <h2 class="text-xl font-semibold text-amber-400">AI Tutor</h2>
                     <div>
                         <select id="provider-select" name="provider" class="bg-warmgray-700 text-warmgray-200 rounded p-1 border border-warmgray-600 text-sm" style="background-color: #504A40 !important; color: #E5E7EB !important;">
                             <?php foreach ($providers as $name => $provider): ?>
@@ -392,26 +617,26 @@ $default_provider = $config['default_provider'] ?? 'local';
                 </div>
                 
                 <!-- Messages Container -->
-                <div id="chat-messages" class="flex-grow overflow-y-auto mb-4 bg-warmgray-900 rounded-lg p-4">
+                <div id="tutor-messages" class="flex-grow overflow-y-auto mb-4 bg-warmgray-900 rounded-lg p-4">
                     <div class="bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200">
-                        <p class="mb-2">👋 <span class="text-amber-400">Research Assistant</span> here! I can help you with:</p>
+                        <p class="mb-2">👋 <span class="text-amber-400">AI Tutor</span> here! I'll help you learn about scientific concepts by:</p>
                         <ul class="list-disc ml-6 space-y-1">
-                            <li>Answering questions about scientific papers</li>
-                            <li>Explaining complex research concepts</li>
-                            <li>Summarizing topics across multiple papers</li>
-                            <li>Finding connections between different research areas</li>
-                            <li>Suggesting promising research directions</li>
+                            <li>Breaking down complex papers into understandable components</li>
+                            <li>Asking guiding questions to help you understand concepts</li>
+                            <li>Providing helpful analogies and examples</li>
+                            <li>Walking you through difficult mathematical formulations</li>
+                            <li>Helping you connect ideas across different papers</li>
                         </ul>
-                        <p class="mt-2">Try asking me about a specific research topic or load papers from your collections to discuss!</p>
+                        <p class="mt-2">Try asking me about a paper you're struggling with, or load papers from your collections to discuss!</p>
                     </div>
                 </div>
                 
                 <!-- Input Area -->
                 <div class="flex space-x-2">
-                    <input type="text" id="chat-input" placeholder="Ask about research topics or papers..." 
+                    <input type="text" id="tutor-input" placeholder="Ask about a paper or concept you want to understand..." 
                            class="flex-grow p-3 bg-warmgray-700 text-warmgray-100 rounded border border-warmgray-600 focus:outline-none focus:ring-1 focus:ring-amber-500" 
                            style="background-color: #504A40 !important; color: #E5E7EB !important;">
-                    <button id="send-chat" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-warmgray-900 font-semibold rounded">
+                    <button id="send-question" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-warmgray-900 font-semibold rounded">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
@@ -421,7 +646,7 @@ $default_provider = $config['default_provider'] ?? 'local';
             <div class="w-full lg:w-1/4 bg-warmgray-800 rounded-lg p-4 space-y-4">
                 <!-- Context Selection -->
                 <div>
-                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Chat Context</h3>
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Study Materials</h3>
                     <div class="bg-warmgray-700 p-3 rounded-lg space-y-2">
                         <div>
                             <label class="flex items-center text-warmgray-200 cursor-pointer">
@@ -442,31 +667,49 @@ $default_provider = $config['default_provider'] ?? 'local';
                     </div>
                 </div>
                 
-                <!-- Recent Chats -->
+                <!-- Recent Sessions -->
                 <div>
-                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Recent Chats</h3>
-                    <div class="bg-warmgray-700 p-3 rounded-lg max-h-64 overflow-y-auto" id="recent-chats">
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Recent Sessions</h3>
+                    <div class="bg-warmgray-700 p-3 rounded-lg max-h-64 overflow-y-auto" id="recent-sessions">
                         <div class="text-sm text-warmgray-400 italic">
-                            Your recent conversations will appear here
+                            Your recent tutoring sessions will appear here
                         </div>
                     </div>
                 </div>
                 
-                <!-- Chat Tips -->
+                <!-- Tutoring Tips -->
                 <div class="bg-warmgray-700 p-3 rounded-lg">
-                    <h3 class="text-md font-semibold text-amber-400 mb-1">Tips</h3>
+                    <h3 class="text-md font-semibold text-amber-400 mb-1">Tutoring Tips</h3>
                     <ul class="text-sm text-warmgray-300 space-y-1 list-disc list-inside">
-                        <li>Be specific in your questions</li>
-                        <li>Use papers from your collections as context</li>
-                        <li>Ask for explanations of complex concepts</li>
-                        <li>Request comparisons between different papers</li>
+                        <li>Ask "how" and "why" questions for deeper understanding</li>
+                        <li>Request step-by-step explanations of difficult concepts</li>
+                        <li>Ask for real-world analogies to complex ideas</li>
+                        <li>Try to explain concepts back to solidify understanding</li>
+                        <li>Focus on one paper or concept at a time for better learning</li>
                     </ul>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Footer is at the end of the page -->
+    <!-- Footer -->
+    <footer class="mt-6 py-4 px-3 bg-warmgray-800 border-t border-warmgray-700">
+        <div class="container mx-auto">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-2 sm:mb-0">
+                    <p class="text-xs sm:text-sm text-warmgray-400 text-center sm:text-left">&copy; <?php echo date('Y'); ?> Arxer - Advanced ArXiv Research Assistant</p>
+                    <p class="text-xs text-warmgray-500 mt-1">Using local AI: <?php echo htmlspecialchars($providers[$default_provider]['endpoint'] ?? 'Not configured'); ?></p>
+                </div>
+                <div class="flex space-x-3">
+                    <a href="index.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Search</a>
+                    <a href="chat.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Assistant</a>
+                    <a href="tutor.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">AI Tutor</a>
+                    <a href="knowledge_graph.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Knowledge Graph</a>
+                    <a href="view_favorites.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Collections</a>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <!-- Use a more reliable CDN or local fallback -->
 <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.min.js"></script>
@@ -498,15 +741,15 @@ $default_provider = $config['default_provider'] ?? 'local';
         // Initialize variables
         let contextPapers = [];
         let selectedContext = 'none';
-        let chatHistory = [];
+        let tutorSessions = [];
         
         // DOM elements
-        const chatInput = document.getElementById('chat-input');
-        const sendButton = document.getElementById('send-chat');
-        const chatMessages = document.getElementById('chat-messages');
+        const tutorInput = document.getElementById('tutor-input');
+        const sendButton = document.getElementById('send-question');
+        const tutorMessages = document.getElementById('tutor-messages');
         const contextRadios = document.querySelectorAll('input[name="context-type"]');
         const favoritesSelector = document.getElementById('favorites-selector');
-        const recentChats = document.getElementById('recent-chats');
+        const recentSessions = document.getElementById('recent-sessions');
         
         // Load favorites for context selection
         function loadFavorites() {
@@ -667,7 +910,7 @@ $default_provider = $config['default_provider'] ?? 'local';
                 }
                 
                 statusDiv.innerHTML = `
-                    <p><i class="fas fa-info-circle text-amber-400 mr-1"></i> Using ${contextPapers.length} papers as context</p>
+                    <p><i class="fas fa-info-circle text-amber-400 mr-1"></i> Using ${contextPapers.length} papers as study materials</p>
                     <ul class="mt-1">${papersList}</ul>
                 `;
             } else {
@@ -675,105 +918,105 @@ $default_provider = $config['default_provider'] ?? 'local';
             }
             
             // Remove any existing status messages
-            const existingStatus = chatMessages.querySelector('.context-status');
+            const existingStatus = tutorMessages.querySelector('.context-status');
             if (existingStatus) {
-                chatMessages.removeChild(existingStatus);
+                tutorMessages.removeChild(existingStatus);
             }
             
             statusDiv.classList.add('context-status');
-            chatMessages.appendChild(statusDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            tutorMessages.appendChild(statusDiv);
+            tutorMessages.scrollTop = tutorMessages.scrollHeight;
         }
         
-        // Load chat history
-        function loadChatHistory() {
+        // Load tutor session history
+        function loadTutorSessions() {
             try {
-                const savedHistory = localStorage.getItem('arxer_chat_history');
-                console.log('Loading saved chat history:', savedHistory ? 'found' : 'not found');
+                const savedSessions = localStorage.getItem('arxer_tutor_sessions');
+                console.log('Loading saved tutor sessions:', savedSessions ? 'found' : 'not found');
                 
-                if (savedHistory) {
-                    chatHistory = JSON.parse(savedHistory);
-                    console.log('Loaded', chatHistory.length, 'chat sessions');
+                if (savedSessions) {
+                    tutorSessions = JSON.parse(savedSessions);
+                    console.log('Loaded', tutorSessions.length, 'tutor sessions');
                 } else {
-                    chatHistory = [];
-                    console.log('No chat history found, starting fresh');
+                    tutorSessions = [];
+                    console.log('No tutor sessions found, starting fresh');
                 }
                 
-                updateChatHistoryDisplay();
+                updateTutorSessionsDisplay();
             } catch (e) {
-                console.error('Error loading chat history:', e);
-                chatHistory = [];
-                updateChatHistoryDisplay();
+                console.error('Error loading tutor sessions:', e);
+                tutorSessions = [];
+                updateTutorSessionsDisplay();
             }
         }
         
-        // Update chat history display
-        function updateChatHistoryDisplay() {
-            recentChats.innerHTML = '';
+        // Update tutor sessions display
+        function updateTutorSessionsDisplay() {
+            recentSessions.innerHTML = '';
             
-            if (!chatHistory || chatHistory.length === 0) {
-                recentChats.innerHTML = `<div class="text-sm text-warmgray-400 italic">Your recent conversations will appear here</div>`;
+            if (!tutorSessions || tutorSessions.length === 0) {
+                recentSessions.innerHTML = `<div class="text-sm text-warmgray-400 italic">Your recent tutoring sessions will appear here</div>`;
                 return;
             }
             
-            console.log('Displaying', Math.min(chatHistory.length, 5), 'recent chats');
+            console.log('Displaying', Math.min(tutorSessions.length, 5), 'recent sessions');
             
-            // Display most recent chats first
-            chatHistory.slice(0, 5).forEach(function(chat, index) {
-                if (!chat || !chat.firstQuestion) {
-                    console.error('Invalid chat entry:', chat);
+            // Display most recent sessions first
+            tutorSessions.slice(0, 5).forEach(function(session, index) {
+                if (!session || !session.firstQuestion) {
+                    console.error('Invalid session entry:', session);
                     return;
                 }
                 
-                const chatDiv = document.createElement('div');
-                chatDiv.className = 'p-2 hover:bg-warmgray-600 rounded cursor-pointer mb-1';
-                chatDiv.innerHTML = `
-                    <div class="text-sm font-medium text-amber-400 truncate">${escapeHtml(chat.firstQuestion)}</div>
-                    <div class="text-xs text-warmgray-400">${new Date(chat.timestamp).toLocaleString()}</div>
+                const sessionDiv = document.createElement('div');
+                sessionDiv.className = 'p-2 hover:bg-warmgray-600 rounded cursor-pointer mb-1';
+                sessionDiv.innerHTML = `
+                    <div class="text-sm font-medium text-amber-400 truncate">${escapeHtml(session.firstQuestion)}</div>
+                    <div class="text-xs text-warmgray-400">${new Date(session.timestamp).toLocaleString()}</div>
                 `;
-                recentChats.appendChild(chatDiv);
+                recentSessions.appendChild(sessionDiv);
                 
-                // Add event listener to load this chat
-                chatDiv.addEventListener('click', function() {
-                    loadChatSession(chat);
+                // Add event listener to load this session
+                sessionDiv.addEventListener('click', function() {
+                    loadTutorSession(session);
                 });
             });
         }
         
-        // Load a specific chat session
-        function loadChatSession(chat) {
-            console.log('Loading chat session:', chat.id);
-            if (!chat || !chat.messages || !Array.isArray(chat.messages)) {
-                console.error('Invalid chat data:', chat);
+        // Load a specific tutor session
+        function loadTutorSession(session) {
+            console.log('Loading tutor session:', session.id);
+            if (!session || !session.messages || !Array.isArray(session.messages)) {
+                console.error('Invalid session data:', session);
                 return;
             }
             
             // Clear current messages
-            chatMessages.innerHTML = ``;
+            tutorMessages.innerHTML = ``;
             
             // Add the welcome message back
-            chatMessages.innerHTML = `
+            tutorMessages.innerHTML = `
                 <div class="bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200">
-                    <p class="mb-2">👋 <span class="text-amber-400">Research Assistant</span> here! I can help you with:</p>
+                    <p class="mb-2">👋 <span class="text-amber-400">AI Tutor</span> here! I'll help you learn about scientific concepts by:</p>
                     <ul class="list-disc ml-6 space-y-1">
-                        <li>Answering questions about scientific papers</li>
-                        <li>Explaining complex research concepts</li>
-                        <li>Summarizing topics across multiple papers</li>
-                        <li>Finding connections between different research areas</li>
-                        <li>Suggesting promising research directions</li>
+                        <li>Breaking down complex papers into understandable components</li>
+                        <li>Asking guiding questions to help you understand concepts</li>
+                        <li>Providing helpful analogies and examples</li>
+                        <li>Walking you through difficult mathematical formulations</li>
+                        <li>Helping you connect ideas across different papers</li>
                     </ul>
-                    <p class="mt-2">Try asking me about a specific research topic or load papers from your collections to discuss!</p>
+                    <p class="mt-2">Try asking me about a paper you're struggling with, or load papers from your collections to discuss!</p>
                 </div>
             `;
             
             // Add session info
             const sessionInfo = document.createElement('div');
             sessionInfo.className = 'bg-amber-700 text-warmgray-100 p-2 rounded-lg mb-4 text-xs';
-            sessionInfo.innerHTML = `<p><i class="fas fa-history mr-1"></i> Viewing chat from ${new Date(chat.timestamp).toLocaleString()}</p>`;
-            chatMessages.appendChild(sessionInfo);
+            sessionInfo.innerHTML = `<p><i class="fas fa-history mr-1"></i> Viewing session from ${new Date(session.timestamp).toLocaleString()}</p>`;
+            tutorMessages.appendChild(sessionInfo);
             
-            // Add the messages from this chat
-            chat.messages.forEach(function(message) {
+            // Add the messages from this session
+            session.messages.forEach(function(message) {
                 if (!message || !message.role || !message.content) {
                     console.error('Invalid message:', message);
                     return;
@@ -783,14 +1026,14 @@ $default_provider = $config['default_provider'] ?? 'local';
                     const userMsg = document.createElement('div');
                     userMsg.className = 'bg-amber-500 text-warmgray-900 p-3 rounded-lg mb-4 ml-auto max-w-3xl';
                     userMsg.innerHTML = `<p>${escapeHtml(message.content)}</p>`;
-                    chatMessages.appendChild(userMsg);
+                    tutorMessages.appendChild(userMsg);
                 } else {
                     const aiMsg = document.createElement('div');
-                    aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl ai-response';
-                    // Use the stored formatted HTML if available, otherwise format it on the fly
+                    aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl tutor-response';
+                    // Use the stored formatted HTML
                     const content = message.content;
                     aiMsg.innerHTML = content;
-                    chatMessages.appendChild(aiMsg);
+                    tutorMessages.appendChild(aiMsg);
                     
                     // Process any LaTeX in restored messages
                     if (window.MathJax) {
@@ -802,22 +1045,22 @@ $default_provider = $config['default_provider'] ?? 'local';
             });
             
             // Restore context papers if available
-            if (chat.contextPapers && chat.contextPapers.length > 0) {
-                contextPapers = chat.contextPapers;
+            if (session.contextPapers && session.contextPapers.length > 0) {
+                contextPapers = session.contextPapers;
                 
                 // Add status message about context
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'bg-warmgray-700 p-2 rounded-lg mb-4 text-sm text-warmgray-300 context-status';
                 statusDiv.innerHTML = `<p><i class="fas fa-info-circle text-amber-400 mr-1"></i> Using ${contextPapers.length} papers from previous session as context</p>`;
-                chatMessages.appendChild(statusDiv);
+                tutorMessages.appendChild(statusDiv);
             }
             
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            tutorMessages.scrollTop = tutorMessages.scrollHeight;
         }
         
-        // Send chat message
-        function sendChatMessage() {
-            const question = chatInput.value.trim();
+        // Send tutor question
+        function sendTutorQuestion() {
+            const question = tutorInput.value.trim();
             
             if (question === '') return;
             
@@ -825,24 +1068,24 @@ $default_provider = $config['default_provider'] ?? 'local';
             const userMsg = document.createElement('div');
             userMsg.className = 'bg-amber-500 text-warmgray-900 p-3 rounded-lg mb-4 ml-auto max-w-3xl';
             userMsg.innerHTML = `<p>${escapeHtml(question)}</p>`;
-            chatMessages.appendChild(userMsg);
+            tutorMessages.appendChild(userMsg);
             
             // Clear input
-            chatInput.value = '';
+            tutorInput.value = '';
             
             // Add typing indicator
             const typingIndicator = document.createElement('div');
             typingIndicator.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl typing-indicator';
             typingIndicator.innerHTML = '<p>Thinking</p>';
-            chatMessages.appendChild(typingIndicator);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            tutorMessages.appendChild(typingIndicator);
+            tutorMessages.scrollTop = tutorMessages.scrollHeight;
             
             // Get the AI provider
-            const provider = document.querySelector('select[name="provider"]')?.value || 'default';
+            const provider = document.querySelector('#provider-select')?.value || 'default';
             
             // Send request to server
             const formData = new FormData();
-            formData.append('action', 'chat');
+            formData.append('action', 'tutor');
             formData.append('question', question);
             formData.append('provider', provider);
             
@@ -854,34 +1097,31 @@ $default_provider = $config['default_provider'] ?? 'local';
                 // Add visual indicator that context is being used
                 const contextInfo = document.createElement('div');
                 contextInfo.className = 'bg-amber-700 text-warmgray-100 p-2 rounded-lg mb-4 text-xs';
-                contextInfo.innerHTML = `<p><i class="fas fa-info-circle mr-1"></i> Using ${contextPapers.length} papers as context</p>`;
-                chatMessages.appendChild(contextInfo);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                contextInfo.innerHTML = `<p><i class="fas fa-info-circle mr-1"></i> Using ${contextPapers.length} papers as study material</p>`;
+                tutorMessages.appendChild(contextInfo);
+                tutorMessages.scrollTop = tutorMessages.scrollHeight;
             } else {
                 console.log('No context papers to send');
             }
             
-            fetch('research_chat.php', {
+            fetch('tutor.php', {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.text())
             .then(html => {
                 // Remove typing indicator
-                chatMessages.removeChild(typingIndicator);
-                
-                // Format the AI response before displaying
-                const formattedHtml = formatAIResponse(html);
+                tutorMessages.removeChild(typingIndicator);
                 
                 // Add AI response
                 const aiMsg = document.createElement('div');
-                aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl ai-response';
-                aiMsg.innerHTML = formattedHtml;
-                chatMessages.appendChild(aiMsg);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                aiMsg.className = 'bg-warmgray-700 p-3 rounded-lg mb-4 text-warmgray-200 max-w-3xl tutor-response';
+                aiMsg.innerHTML = html;
+                tutorMessages.appendChild(aiMsg);
+                tutorMessages.scrollTop = tutorMessages.scrollHeight;
                 
-                // Update chat history
-                updateChatHistory(question, formattedHtml);
+                // Update tutor history
+                updateTutorHistory(question, html);
                 
                 // Render any LaTeX in the response
                 if (window.MathJax) {
@@ -894,25 +1134,25 @@ $default_provider = $config['default_provider'] ?? 'local';
             })
             .catch(error => {
                 // Remove typing indicator
-                chatMessages.removeChild(typingIndicator);
+                tutorMessages.removeChild(typingIndicator);
                 
                 // Show error message
                 const errorMsg = document.createElement('div');
                 errorMsg.className = 'bg-red-900 text-warmgray-200 p-3 rounded-lg mb-4 max-w-3xl';
                 errorMsg.innerHTML = `<p>Error: ${error.message || 'Could not generate response'}</p>`;
-                chatMessages.appendChild(errorMsg);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                tutorMessages.appendChild(errorMsg);
+                tutorMessages.scrollTop = tutorMessages.scrollHeight;
             });
         }
         
-        // Update chat history
-        function updateChatHistory(question, response) {
+        // Update tutor history
+        function updateTutorHistory(question, response) {
             const now = new Date();
             
             // Check if we have an active session from the last 30 minutes
             let currentSession = null;
-            if (chatHistory.length > 0) {
-                const lastSession = chatHistory[0];
+            if (tutorSessions.length > 0) {
+                const lastSession = tutorSessions[0];
                 const lastTime = new Date(lastSession.timestamp);
                 const timeDiff = now - lastTime; // difference in milliseconds
                 
@@ -932,8 +1172,8 @@ $default_provider = $config['default_provider'] ?? 'local';
                     contextPapers: contextPapers,
                     messages: []
                 };
-                chatHistory.unshift(currentSession); // Add to beginning
-                console.log('Created new chat session');
+                tutorSessions.unshift(currentSession); // Add to beginning
+                console.log('Created new tutor session');
             } else {
                 // Update the timestamp of the current session
                 currentSession.timestamp = now.toISOString();
@@ -946,17 +1186,17 @@ $default_provider = $config['default_provider'] ?? 'local';
             );
             
             // Limit history to 10 sessions
-            if (chatHistory.length > 10) {
-                chatHistory = chatHistory.slice(0, 10);
+            if (tutorSessions.length > 10) {
+                tutorSessions = tutorSessions.slice(0, 10);
             }
             
             // Save to localStorage
-            localStorage.setItem('arxer_chat_history', JSON.stringify(chatHistory));
-            console.log('Chat history saved:', chatHistory.length, 'sessions with', 
+            localStorage.setItem('arxer_tutor_sessions', JSON.stringify(tutorSessions));
+            console.log('Tutor sessions saved:', tutorSessions.length, 'sessions with', 
                         currentSession.messages.length/2, 'exchanges in current session');
             
             // Update display
-            updateChatHistoryDisplay();
+            updateTutorSessionsDisplay();
         }
         
         // Helper function to escape HTML
@@ -966,115 +1206,6 @@ $default_provider = $config['default_provider'] ?? 'local';
             return div.innerHTML;
         }
         
-        // Format AI response with proper HTML structure
-        function formatAIResponse(text) {
-            if (!text) return '';
-            
-            // Process LaTeX expressions first (protect them from other formatting)
-            const latexPlaceholders = [];
-            let latexCounter = 0;
-            
-            // Replace LaTeX expressions with placeholders
-            text = text.replace(/\\cite[tp]\{([^\}]+)\}/g, (match, cite) => {
-                const placeholder = `__LATEX_PLACEHOLDER_${latexCounter}__`;
-                latexPlaceholders.push({placeholder, content: match});
-                latexCounter++;
-                return placeholder;
-            });
-            
-            // Handle numbered lists
-            // This regex looks for lines starting with numbers followed by period or parenthesis
-            text = text.replace(/(^|\n)\s*(\d+)[.)\s]\s*([^\n]+)/g, (match, newline, number, content) => {
-                return `${newline}<li><strong>${number}.</strong> ${content}</li>`;
-            });
-            
-            // Wrap adjacent list items in <ol> tags
-            let hasOrderedList = text.includes('<li>');
-            if (hasOrderedList) {
-                // Group consecutive list items
-                const listGroups = [];
-                let currentGroup = [];
-                const lines = text.split('\n');
-                
-                lines.forEach(line => {
-                    if (line.trim().startsWith('<li>')) {
-                        currentGroup.push(line);
-                    } else {
-                        if (currentGroup.length > 0) {
-                            listGroups.push(currentGroup);
-                            currentGroup = [];
-                        }
-                        listGroups.push(line);
-                    }
-                });
-                
-                if (currentGroup.length > 0) {
-                    listGroups.push(currentGroup);
-                }
-                
-                // Process each group
-                text = listGroups.map(group => {
-                    if (Array.isArray(group)) {
-                        return `<ol class="list-decimal pl-8 my-4 space-y-2">${group.join('')}</ol>`;
-                    } else {
-                        return group;
-                    }
-                }).join('\n');
-            }
-            
-            // Format paragraphs (lines separated by blank lines)
-            if (!hasOrderedList) {
-                const paragraphs = text.split(/\n\s*\n/);
-                text = paragraphs.map(p => {
-                    // Skip if paragraph is already wrapped in HTML tags
-                    if (p.match(/^\s*<[a-z]+[^>]*>/i)) {
-                        return p;
-                    }
-                    return `<p class="mb-4">${p.replace(/\n/g, ' ')}</p>`;
-                }).join('\n');
-            } else {
-                // For text with lists, find and wrap non-list content in paragraphs
-                const parts = text.split(/(<ol[^>]*>.*?<\/ol>)/gs);
-                text = parts.map(part => {
-                    if (part.startsWith('<ol')) {
-                        return part;
-                    } else {
-                        // Split by newlines and wrap each line in a paragraph if not empty
-                        const lines = part.split(/\n\s*\n/);
-                        return lines.map(line => {
-                            line = line.trim();
-                            if (!line) return '';
-                            if (line.match(/^\s*<[a-z]+[^>]*>/i)) {
-                                return line;
-                            }
-                            return `<p class="mb-4">${line.replace(/\n/g, ' ')}</p>`;
-                        }).join('\n');
-                    }
-                }).join('');
-            }
-            
-            // Restore LaTeX expressions
-            latexPlaceholders.forEach(({placeholder, content}) => {
-                const styledContent = `<span class="citation">${content}</span>`;
-                text = text.replace(placeholder, styledContent);
-            });
-            
-            // Handle paper references (e.g., Paper 1, Paper 2)
-            text = text.replace(/\b(Paper\s+\d+)\b/g, '<strong class="text-amber-400">$1</strong>');
-            
-            // Handle block quotes
-            text = text.replace(/\n\s*>\s*([^\n]+)(\n\s*>\s*[^\n]+)*/g, (match) => {
-                const content = match.replace(/\n\s*>\s*/g, '\n');
-                return `<blockquote class="pl-4 border-l-4 border-amber-500 mb-4 italic text-warmgray-300">${content}</blockquote>`;
-            });
-            
-            // Enhance bold text and references for better visibility
-            text = text.replace(/<strong>([^<]+)<\/strong>/g, '<strong class="text-amber-400">$1</strong>');
-            
-            return text;
-        }
-        
-        // Event listeners
         // Save preferred provider to localStorage
         function savePreferredProvider(provider) {
             try {
@@ -1123,13 +1254,13 @@ $default_provider = $config['default_provider'] ?? 'local';
                 // Show warning to user
                 const warningDiv = document.createElement('div');
                 warningDiv.className = 'bg-red-800 text-white p-3 rounded-lg mb-4';
-                warningDiv.innerHTML = '<p><i class="fas fa-exclamation-triangle"></i> Warning: Local storage is not available. Chat history will not be saved.</p>';
+                warningDiv.innerHTML = '<p><i class="fas fa-exclamation-triangle"></i> Warning: Local storage is not available. Tutoring history will not be saved.</p>';
                 document.querySelector('main .container').prepend(warningDiv);
             }
             
-            // Load favorites and chat history
+            // Load favorites and tutor history
             loadFavorites();
-            loadChatHistory();
+            loadTutorSessions();
             
             // Load preferred provider
             loadPreferredProvider();
@@ -1145,12 +1276,12 @@ $default_provider = $config['default_provider'] ?? 'local';
             }
             
             // Send button click
-            sendButton.addEventListener('click', sendChatMessage);
+            sendButton.addEventListener('click', sendTutorQuestion);
             
             // Enter key in input
-            chatInput.addEventListener('keypress', function(e) {
+            tutorInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    sendChatMessage();
+                    sendTutorQuestion();
                 }
             });
             
@@ -1178,23 +1309,5 @@ $default_provider = $config['default_provider'] ?? 'local';
             }
         });
     </script>
-    
-    <footer class="mt-6 py-4 px-3 bg-warmgray-800 border-t border-warmgray-700">
-        <div class="container mx-auto">
-            <div class="flex flex-col sm:flex-row justify-between items-center">
-                <div class="mb-2 sm:mb-0">
-                    <p class="text-xs sm:text-sm text-warmgray-400 text-center sm:text-left">&copy; <?php echo date('Y'); ?> Arxer - Advanced ArXiv Research Assistant</p>
-                    <p class="text-xs text-warmgray-500 mt-1">Using local AI: <?php echo htmlspecialchars($providers[$default_provider]['endpoint'] ?? 'Not configured'); ?></p>
-                </div>
-                <div class="flex space-x-3">
-                    <a href="index.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Search</a>
-                    <a href="chat.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Assistant</a>
-                    <a href="tutor.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">AI Tutor</a>
-                    <a href="knowledge_graph.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Knowledge Graph</a>
-                    <a href="view_favorites.php" class="text-xs sm:text-sm text-warmgray-400 hover:text-amber-400">Collections</a>
-                </div>
-            </div>
-        </div>
-    </footer>
 </body>
 </html>
